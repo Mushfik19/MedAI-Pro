@@ -13,12 +13,10 @@ function toBoolean(value: string | undefined): boolean {
   return value === "true"
 }
 
-const defaultApiBaseUrl = import.meta.env.DEV
-  ? "http://localhost:8000/api/v1"
-  : "/api/v1"
+const defaultApiBaseUrl = "https://medai-pro-5100.onrender.com/api/v1"
 
 export const applicationConfig: ApplicationConfig = applicationConfigSchema.parse({
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? defaultApiBaseUrl,
+  apiBaseUrl: import.meta.env.VITE_API_URL ?? defaultApiBaseUrl,
   environment: import.meta.env.VITE_APP_ENV ?? "local",
   enableApiLogging: toBoolean(import.meta.env.VITE_ENABLE_API_LOGGING),
   informedUseConsentId: import.meta.env.VITE_INFORMED_USE_CONSENT_ID || undefined,

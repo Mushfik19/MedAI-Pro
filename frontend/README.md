@@ -33,9 +33,10 @@ npm.cmd run check
 
 Copy the names from `.env.example` into the appropriate local or platform environment. Do not commit real secrets. Every `VITE_` value is public to the browser and must never contain database, JWT-signing, LLM, email, or storage credentials.
 
-Vite development uses `http://localhost:8000/api/v1`, so browser requests go directly to the
-local FastAPI service. The Vite proxy still supports `/api/v1` as a same-origin fallback.
-Production must provide the approved Railway API origin or an edge proxy path.
+Set `VITE_API_URL` to the complete API base URL. It defaults to
+`https://medai-pro-5100.onrender.com/api/v1`; local development overrides it with
+`http://localhost:8000/api/v1` in `.env.development`.
+Vercel can override the default by setting `VITE_API_URL` to the approved API origin.
 
 ## Quality commands
 

@@ -1,0 +1,92 @@
+name: mediai-pro
+
+services:
+  postgres:
+    image: postgres:17.10-alpine
+    environment:
+      POSTGRES_DB: mediai
+      POSTGRES_USER: mediai
+      POSTGRES_PASSWORD: mediai_local
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mediai -d mediai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+    volumes:
+      - mediai_postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:8.6.5-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "6379:6379"
+    volumes:
+      - mediai_redis_data:/data
+
+  migrate:
+    build:
+      context: .
+      target: runtime
+    env_file: .env
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      target: runtime
+    env_file: .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      start_period: 180s
+    volumes:
+      - mediai_artifacts:/app/artifacts
+
+  worker:
+    build:
+      context: .
+      target: runtime
+    env_file: .env
+    command:
+      [
+        "celery",
+        "--app=mediai.infrastructure.tasks.celery_app:celery_app",
+        "worker",
+        "--loglevel=INFO",
+      ]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery --app=mediai.infrastructure.tasks.celery_app:celery_app inspect ping --destination celery@$$HOSTNAME --timeout 5",
+        ]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+volumes:
+  mediai_postgres_data:
+  mediai_redis_data:
+  mediai_artifacts:

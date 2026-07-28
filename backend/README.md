@@ -1,0 +1,180 @@
+# MediAI Pro Backend Foundation
+
+This directory contains the production backend foundation for MediAI Pro. It provides the
+application composition root, async infrastructure, security primitives, operational endpoints,
+tooling, migrations, containers, and tests. It intentionally contains no authentication business
+API, disease prediction API, ML API, or chat API.
+
+## Architecture
+
+The source is organized around Clean Architecture and feature ownership:
+
+- `src/mediai/app` assembles FastAPI, lifespan, middleware, and global exception handling.
+- `src/mediai/core` owns immutable configuration, constants, enums, logging, and OpenAPI policy.
+- `src/mediai/features` owns vertical business or operational features. Only `health` exists in this
+  foundation.
+- `src/mediai/infrastructure` contains concrete SQLAlchemy, Redis, Celery, rate-limit, password, JWT,
+  and RBAC adapters.
+- `src/mediai/shared` contains reusable domain exceptions, application services, repository
+  foundations, response contracts, and framework-independent utilities.
+- `src/mediai/presentation` composes versioned HTTP routers without owning business rules.
+- `alembic` owns reviewed database schema migrations.
+- `tests/unit` verifies isolated policies and adapters.
+- `tests/integration` verifies application composition and HTTP contracts with isolated async
+  infrastructure adapters.
+- `.github/workflows/backend-ci.yml` enforces dependency, formatting, linting, typing, test, and
+  production-image build gates for backend changes.
+
+Feature modules added later should own their domain models, application services, repositories,
+schemas, and router. Shared folders must not become a dumping ground for feature-specific rules.
+
+## Dependency management
+
+`pyproject.toml` is the single dependency source. Exact direct dependency versions make local,
+CI, and image builds reproducible without duplicating a second manually maintained requirements
+file.
+
+Create and install the development environment from the repository root:
+
+```powershell
+python -m venv backend\.venv
+backend\.venv\Scripts\python.exe -m pip install --upgrade pip
+backend\.venv\Scripts\python.exe -m pip install -e "backend[dev]"
+```
+
+## Environment configuration
+
+Copy the environment template:
+
+```powershell
+Copy-Item backend\.env.example backend\.env
+```
+
+Generate a cryptographically secure local JWT signing secret:
+
+```powershell
+$jwtSecret = backend\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(64))"
+(Get-Content backend\.env) -replace '^MEDIAI_JWT_SECRET_KEY=$', "MEDIAI_JWT_SECRET_KEY=$jwtSecret" | Set-Content backend\.env
+```
+
+Production secrets must come from the deployment platform's secret store. Never commit `.env`,
+JWT keys, database credentials, Redis credentials, or provider secrets.
+
+When running the API directly on the host, change the database and Redis hostnames in `.env` from
+`postgres` and `redis` to `localhost`. Docker Compose uses the service hostnames unchanged.
+
+## Run with Docker Compose
+
+From `backend`:
+
+```powershell
+docker compose up --build
+```
+
+Services:
+
+- Migration job: runs `alembic upgrade head` once before application processes start
+- API: `http://localhost:8000`
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
+- Celery worker: internal service connected to Redis
+
+Docker stores trained models, metrics, and generated reports in the `mediai_artifacts` named
+volume. The runtime image uses the unprivileged `mediai` user (UID/GID 10001), and initializes the
+volume mount point with matching ownership. Relative ML paths are resolved against
+`MEDIAI_RUNTIME_ROOT`; the image sets that root to `/app`.
+
+Stop services without deleting data:
+
+```powershell
+docker compose down
+```
+
+Deleting named volumes is intentionally not included because it destroys local database and Redis
+state.
+
+## Run directly
+
+Start PostgreSQL and Redis, update `.env` for host networking, then run:
+
+```powershell
+Set-Location backend
+.\.venv\Scripts\python.exe -m uvicorn mediai.main:app --app-dir src --host 127.0.0.1 --port 8000 --reload
+```
+
+Start the worker in another terminal:
+
+```powershell
+Set-Location backend
+.\.venv\Scripts\python.exe -m celery --app=mediai.infrastructure.tasks.celery_app:celery_app worker --loglevel=INFO
+```
+
+Celery workers are run in Linux containers for the supported local and production workflow.
+
+## Database migrations
+
+Run commands from `backend` with the configured PostgreSQL database available:
+
+```powershell
+.\.venv\Scripts\python.exe -m alembic current
+.\.venv\Scripts\python.exe -m alembic check
+.\.venv\Scripts\python.exe -m alembic revision --autogenerate -m "describe schema change"
+.\.venv\Scripts\python.exe -m alembic upgrade head
+.\.venv\Scripts\python.exe -m alembic downgrade -1
+```
+
+Always inspect autogenerated revisions. Destructive changes require an explicit data migration and
+rollback decision.
+
+## Quality workflow
+
+Run formatting, linting, typing, and tests:
+
+```powershell
+Set-Location backend
+.\.venv\Scripts\python.exe -m black --check src tests alembic
+.\.venv\Scripts\python.exe -m ruff check src tests alembic
+.\.venv\Scripts\python.exe -m mypy src tests
+.\.venv\Scripts\python.exe -m pytest
+```
+
+Apply formatting locally:
+
+```powershell
+.\.venv\Scripts\python.exe -m black src tests alembic
+.\.venv\Scripts\python.exe -m ruff check --fix src tests alembic
+```
+
+Install repository hooks:
+
+```powershell
+.\.venv\Scripts\python.exe -m pre_commit install --config .pre-commit-config.yaml
+.\.venv\Scripts\python.exe -m pre_commit run --all-files --config .pre-commit-config.yaml
+```
+
+## Operational endpoints
+
+- `GET /api/v1/health/live` checks process liveness.
+- `GET /api/v1/health/ready` checks PostgreSQL and Redis readiness.
+- `GET /api/v1/health/version` reports non-sensitive build identity.
+
+Every success response uses a typed data envelope and request metadata. Errors use
+`application/problem+json` with a stable code and request ID.
+
+## Security baseline
+
+- Access JWTs contain an explicit issuer, audience, token type, session ID, role, permissions,
+  timestamps, and unique token ID.
+- Tokens are decoded by authentication-context middleware and enforced by endpoint dependencies.
+- RBAC policies use stable role and permission enums.
+- Password infrastructure uses the recommended Argon2 configuration through `pwdlib`.
+- Rate limits are atomic and distributed through Redis.
+- Request IDs are validated before being trusted.
+- Responses receive defensive headers and `Cache-Control: no-store`.
+- CORS credentials cannot be combined with wildcard origins.
+- Application errors never expose stack traces or infrastructure credentials.
+
+Authentication persistence, refresh sessions, login, MFA, registration, logout, and user models
+belong to the next explicitly approved implementation phase.

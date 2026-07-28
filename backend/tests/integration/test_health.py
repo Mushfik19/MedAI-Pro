@@ -1,0 +1,99 @@
+from httpx import AsyncClient
+
+
+async def test_liveness_returns_envelope_and_request_id(client: AsyncClient) -> None:
+    response = await client.get(
+        "/api/v1/health/live",
+        headers={"X-Request-ID": "b31c7c11-cd0a-42f1-a88e-6079d35ecf44"},
+    )
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == "b31c7c11-cd0a-42f1-a88e-6079d35ecf44"
+    assert response.json()["data"] == {"status": "ok"}
+    assert response.json()["meta"]["request_id"] == response.headers["X-Request-ID"]
+
+
+async def test_readiness_checks_database_and_redis(client: AsyncClient) -> None:
+    response = await client.get("/api/v1/health/ready")
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["status"] == "ok"
+    assert body["dependencies"]["database"]["status"] == "ok"
+    assert body["dependencies"]["redis"]["status"] == "ok"
+
+
+async def test_version_does_not_expose_secrets(client: AsyncClient) -> None:
+    response = await client.get("/api/v1/health/version")
+    assert response.status_code == 200
+    assert response.json()["data"] == {
+        "application": "MediAI Pro Test API",
+        "version": "0.1.0-test",
+        "api_version": "v1",
+        "environment": "test",
+    }
+    assert "secret" not in response.text.lower()
+
+
+async def test_openapi_contains_required_application_routes(client: AsyncClient) -> None:
+    response = await client.get("/openapi.json")
+    paths = response.json()["paths"]
+    required_paths = {
+        "/api/v1/admin/analytics/summary",
+        "/api/v1/admin/audit-logs",
+        "/api/v1/admin/datasets",
+        "/api/v1/admin/models",
+        "/api/v1/admin/training-jobs",
+        "/api/v1/admin/users",
+        "/api/v1/auth/change-password",
+        "/api/v1/auth/forgot-password",
+        "/api/v1/auth/login",
+        "/api/v1/auth/admin/login",
+        "/api/v1/admin/analytics/summary",
+        "/api/v1/admin/assessments",
+        "/api/v1/admin/chats",
+        "/api/v1/admin/system-health",
+        "/api/v1/admin/users",
+        "/api/v1/admin/users/{user_id}",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/me",
+        "/api/v1/auth/refresh",
+        "/api/v1/auth/register",
+        "/api/v1/auth/reset-password",
+        "/api/v1/auth/sessions",
+        "/api/v1/catalog/symptoms",
+        "/api/v1/chat/conversations",
+        "/api/v1/chat/conversations/{conversation_id}",
+        "/api/v1/chat/conversations/{conversation_id}/messages",
+        "/api/v1/clinical/analytics",
+        "/api/v1/clinical/audit-logs",
+        "/api/v1/clinical/chat",
+        "/api/v1/clinical/dashboard",
+        "/api/v1/clinical/doctors",
+        "/api/v1/clinical/notifications",
+        "/api/v1/clinical/predictions",
+        "/api/v1/clinical/predictions/history",
+        "/api/v1/clinical/reports/{prediction_id}",
+        "/api/v1/clinical/reports/{report_id}/download",
+        "/api/v1/clinical/settings",
+        "/api/v1/dashboard/disease-frequency",
+        "/api/v1/dashboard/reports/weekly",
+        "/api/v1/dashboard/summary",
+        "/api/v1/dashboard/trends",
+        "/api/v1/doctor/dashboard",
+        "/api/v1/doctor/patients",
+        "/api/v1/doctor/predictions/{prediction_id}/notes",
+        "/api/v1/doctor/reports/{prediction_id}",
+        "/api/v1/health/live",
+        "/api/v1/health/ready",
+        "/api/v1/health/version",
+        "/api/v1/predictions",
+        "/api/v1/predictions/{prediction_id}",
+        "/api/v1/predictions/reports/{report_id}/download",
+        "/api/v1/predictions/{prediction_id}/report",
+        "/api/v1/users/me",
+        "/api/v1/users/me/data-export",
+        "/api/v1/users/me/deletion-request",
+        "/api/v1/users/me/profile",
+        "/api/v1/users/me/settings",
+    }
+    assert required_paths <= set(paths)
+    assert "OAuth2PasswordBearer" in response.json()["components"]["securitySchemes"]

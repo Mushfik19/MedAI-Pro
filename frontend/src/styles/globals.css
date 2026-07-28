@@ -1,0 +1,190 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2")
+    format("woff2-variations");
+}
+
+@font-face {
+  font-family: "Manrope Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2")
+    format("woff2-variations");
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Manrope Variable", "Inter Variable", ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-emergency: var(--emergency);
+  --color-emergency-foreground: var(--emergency-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 8px);
+}
+
+:root {
+  color-scheme: light;
+  --background: #f5f8fc;
+  --foreground: #0b1220;
+  --card: #ffffff;
+  --card-foreground: #020617;
+  --popover: #ffffff;
+  --popover-foreground: #020617;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #1e293b;
+  --muted: #f1f5f9;
+  --muted-foreground: #536176;
+  --accent: #ecfeff;
+  --accent-foreground: #0e7490;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #15803d;
+  --success-foreground: #ffffff;
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+  --emergency: #b91c1c;
+  --emergency-foreground: #ffffff;
+  --border: #dce5f0;
+  --input: #c8d5e5;
+  --ring: #1d65d8;
+  --radius: 0.875rem;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #020617;
+  --foreground: #f8fafc;
+  --card: #0f172a;
+  --card-foreground: #f8fafc;
+  --popover: #0f172a;
+  --popover-foreground: #f8fafc;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #cbd5e1;
+  --accent: #164e63;
+  --accent-foreground: #cffafe;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --success: #22c55e;
+  --success-foreground: #052e16;
+  --warning: #f59e0b;
+  --warning-foreground: #451a03;
+  --emergency: #991b1b;
+  --emergency-foreground: #fff1f2;
+  --border: #334155;
+  --input: #475569;
+  --ring: #60a5fa;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+}
+
+html[data-reduced-motion="true"] {
+  scroll-behavior: auto;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100svh;
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  background-image:
+    radial-gradient(circle at 80% -10%, rgb(219 234 254 / 0.7), transparent 28rem),
+    linear-gradient(180deg, #f9fbfe 0, var(--background) 26rem);
+  background-attachment: fixed;
+  line-height: 1.5;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+[role="button"],
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: #bfdbfe;
+  color: #172554;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

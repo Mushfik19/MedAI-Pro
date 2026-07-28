@@ -23,6 +23,12 @@ from mediai.infrastructure.security.jwt import JWTService
 from mediai.infrastructure.security.passwords import PasswordHasher
 from mediai.presentation.api.v1.router import api_v1_router
 
+REQUIRED_CORS_ORIGINS = (
+    "https://med-ai-pro-frontend.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+)
+
 
 def create_application(
     *,
@@ -54,6 +60,10 @@ def create_application(
     app.state.ml_service = ml_service or ClinicalModelService(resolved_settings)
     app.state.llm_service = MedicalLLMService(resolved_settings)
 
+    cors_origins = list(
+        dict.fromkeys((*resolved_settings.cors_origins, *REQUIRED_CORS_ORIGINS))
+    )
+
     limiter = RedisRateLimiter(app.state.redis.client)
     app.add_middleware(
         RateLimitMiddleware,
@@ -67,16 +77,10 @@ def create_application(
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=resolved_settings.cors_origins,
-        allow_credentials=resolved_settings.cors_allow_credentials,
-        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=[
-            "Authorization",
-            "Content-Type",
-            "Idempotency-Key",
-            "X-CSRF-Token",
-            "X-Request-ID",
-        ],
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
         expose_headers=[
             "ETag",
             "Retry-After",

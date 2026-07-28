@@ -7,7 +7,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from loguru import logger
 
+from mediai.core.enums import Environment
 from mediai.features.auth.seed import seed_default_administrator
+from mediai.infrastructure.database.migrations import upgrade_database_to_head
 
 
 @asynccontextmanager
@@ -18,6 +20,12 @@ async def application_lifespan(app: FastAPI) -> AsyncIterator[None]:
     ml_service = app.state.ml_service
 
     try:
+        if (
+            settings.database_migrate_on_startup
+            and settings.environment is not Environment.TEST
+        ):
+            await asyncio.to_thread(upgrade_database_to_head, settings)
+
         if settings.startup_dependency_checks and not await database.ping():
             raise RuntimeError("Required database dependency is unavailable")
 

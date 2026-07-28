@@ -2,6 +2,7 @@ from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 
 from mediai.app.factory import create_application
+from mediai.core.enums import Environment
 from tests.conftest import FakeClinicalModelService, FakeRedisManager
 
 
@@ -54,6 +55,39 @@ async def test_redis_outage_does_not_block_startup_or_readiness(
     assert ready_response.json()["data"]["dependencies"]["redis"]["status"] == "degraded"
     assert version_response.status_code == 200
     assert redis.retry_started is True
+
+
+async def test_migrations_complete_before_administrator_seeding(
+    settings,
+    database,
+    redis_manager,
+    monkeypatch,
+) -> None:
+    startup_events: list[str] = []
+    monkeypatch.setattr(
+        "mediai.app.lifespan.upgrade_database_to_head",
+        lambda _settings: startup_events.append("migrated"),
+    )
+
+    async def record_seed(_application) -> None:
+        startup_events.append("seeded")
+
+    monkeypatch.setattr("mediai.app.lifespan.seed_default_administrator", record_seed)
+    application = create_application(
+        settings=settings.model_copy(
+            update={
+                "environment": Environment.LOCAL,
+                "database_migrate_on_startup": True,
+                "seed_default_admin": True,
+            }
+        ),
+        database=database,
+        redis=redis_manager,
+        ml_service=FakeClinicalModelService(),
+    )
+
+    async with LifespanManager(application):
+        assert startup_events == ["migrated", "seeded"]
 
 
 async def test_version_does_not_expose_secrets(client: AsyncClient) -> None:

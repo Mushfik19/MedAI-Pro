@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     rate_limit_fail_open: bool = False
 
     startup_dependency_checks: bool = True
+    database_migrate_on_startup: bool = True
     log_level: str = "INFO"
     log_json: bool = False
     docs_enabled: bool = True
@@ -140,6 +141,8 @@ class Settings(BaseSettings):
             raise ValueError("Debug mode cannot be enabled in production")
         if self.environment is Environment.PRODUCTION and not self.refresh_cookie_secure:
             raise ValueError("Secure refresh cookies are required in production")
+        if self.environment is Environment.PRODUCTION and not self.database_migrate_on_startup:
+            raise ValueError("Database migrations cannot be disabled in production")
         if self.refresh_cookie_samesite == "none" and not self.refresh_cookie_secure:
             raise ValueError("SameSite=None requires secure cookies")
         if self.environment is not Environment.TEST and self.database_url.startswith(

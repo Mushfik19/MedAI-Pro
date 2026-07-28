@@ -36,6 +36,19 @@ def test_settings_reject_production_debug() -> None:
         Settings(**values)
 
 
+def test_settings_require_startup_migrations_in_production() -> None:
+    values = base_values()
+    values.update(
+        environment=Environment.PRODUCTION,
+        database_url="postgresql+asyncpg://user:password@localhost/mediai",
+        jwt_secret_key=SecretStr("a" * 64),
+        refresh_cookie_secure=True,
+        database_migrate_on_startup=False,
+    )
+    with pytest.raises(ValidationError, match="migrations cannot be disabled"):
+        Settings(**values)
+
+
 def test_settings_normalize_log_level() -> None:
     settings = Settings(**base_values(), log_level="warning")
     assert settings.log_level == "WARNING"

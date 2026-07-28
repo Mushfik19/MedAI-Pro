@@ -22,6 +22,7 @@ from mediai.core.constants import (
     REQUEST_ID_HEADER,
 )
 from mediai.infrastructure.rate_limit.service import RedisRateLimiter
+from mediai.infrastructure.redis import RedisManager
 from mediai.infrastructure.security.jwt import JWTService
 from mediai.infrastructure.security.principal import AuthenticatedPrincipal
 from mediai.shared.domain.exceptions import AuthenticationError
@@ -144,10 +145,12 @@ class RateLimitMiddleware:
         app: ASGIApp,
         *,
         limiter: RedisRateLimiter,
+        redis: RedisManager,
         settings: Settings,
     ) -> None:
         self.app = app
         self.limiter = limiter
+        self.redis = redis
         self.settings = settings
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -157,6 +160,9 @@ class RateLimitMiddleware:
             or scope["method"] == "OPTIONS"
             or scope["path"] in self.excluded_paths
         ):
+            await self.app(scope, receive, send)
+            return
+        if not getattr(self.redis, "available", True):
             await self.app(scope, receive, send)
             return
 
@@ -174,18 +180,9 @@ class RateLimitMiddleware:
                 window_seconds=self.settings.rate_limit_window_seconds,
             )
         except RedisError:
-            logger.exception("rate_limit_backend_unavailable")
-            if self.settings.rate_limit_fail_open:
-                await self.app(scope, receive, send)
-                return
-            response = self._problem_response(
-                request,
-                status_code=503,
-                code="RATE_LIMIT_UNAVAILABLE",
-                title="Service unavailable",
-                detail="Request admission is temporarily unavailable.",
-            )
-            await response(scope, receive, send)
+            logger.warning("rate_limit_backend_unavailable")
+            self.redis.mark_unavailable()
+            await self.app(scope, receive, send)
             return
 
         if not decision.allowed:

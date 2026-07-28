@@ -157,7 +157,8 @@ Install repository hooks:
 ## Operational endpoints
 
 - `GET /api/v1/health/live` checks process liveness.
-- `GET /api/v1/health/ready` checks PostgreSQL and Redis readiness.
+- `GET /api/v1/health/ready` gates readiness on PostgreSQL and reports Redis as an
+  optional degraded dependency while background reconnection is in progress.
 - `GET /api/v1/health/version` reports non-sensitive build identity.
 
 Every success response uses a typed data envelope and request metadata. Errors use

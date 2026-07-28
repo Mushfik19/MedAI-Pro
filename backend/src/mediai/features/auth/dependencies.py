@@ -19,7 +19,6 @@ from mediai.infrastructure.rate_limit.service import RedisRateLimiter
 from mediai.infrastructure.security.dependencies import CurrentPrincipal
 from mediai.shared.domain.exceptions import (
     AuthenticationError,
-    InfrastructureUnavailableError,
     RateLimitExceededError,
 )
 from mediai.shared.utils.time import utc_now
@@ -97,9 +96,8 @@ async def enforce_login_rate_limit(request: Request, email: str) -> None:
             limit=settings.login_rate_limit_requests,
             window_seconds=settings.login_rate_limit_window_seconds,
         )
-    except RedisError as error:
-        if settings.rate_limit_fail_open:
-            return
-        raise InfrastructureUnavailableError("authentication rate limiter") from error
+    except RedisError:
+        request.app.state.redis.mark_unavailable()
+        return
     if not decision.allowed:
         raise RateLimitExceededError(decision.retry_after)

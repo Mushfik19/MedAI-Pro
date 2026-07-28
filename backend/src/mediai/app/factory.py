@@ -15,8 +15,8 @@ from mediai.core.config import Settings, get_settings
 from mediai.core.logging import configure_logging
 from mediai.core.openapi import build_openapi_schema
 from mediai.infrastructure.database import DatabaseManager
-from mediai.infrastructure.ml.service import ClinicalModelService
 from mediai.infrastructure.llm.service import MedicalLLMService
+from mediai.infrastructure.ml.service import ClinicalModelService
 from mediai.infrastructure.rate_limit.service import RedisRateLimiter
 from mediai.infrastructure.redis import RedisManager
 from mediai.infrastructure.security.jwt import JWTService
@@ -58,6 +58,7 @@ def create_application(
     app.add_middleware(
         RateLimitMiddleware,
         limiter=limiter,
+        redis=app.state.redis,
         settings=resolved_settings,
     )
     app.add_middleware(

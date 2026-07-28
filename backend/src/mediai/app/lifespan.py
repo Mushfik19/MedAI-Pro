@@ -18,10 +18,16 @@ async def application_lifespan(app: FastAPI) -> AsyncIterator[None]:
     ml_service = app.state.ml_service
 
     try:
-        if settings.startup_dependency_checks:
-            database_ready, redis_ready = await asyncio.gather(database.ping(), redis.ping())
-            if not database_ready or not redis_ready:
-                raise RuntimeError("Required startup dependencies are unavailable")
+        if settings.startup_dependency_checks and not await database.ping():
+            raise RuntimeError("Required database dependency is unavailable")
+
+        redis_ready = await redis.ping()
+        if not redis_ready:
+            logger.warning(
+                "redis_unavailable_at_startup",
+                detail="Redis-dependent features are temporarily disabled",
+            )
+            redis.start_background_retry()
 
         await seed_default_administrator(app)
         await asyncio.to_thread(ml_service.initialize)

@@ -1,4 +1,8 @@
-from httpx import AsyncClient
+from asgi_lifespan import LifespanManager
+from httpx import ASGITransport, AsyncClient
+
+from mediai.app.factory import create_application
+from tests.conftest import FakeClinicalModelService, FakeRedisManager
 
 
 async def test_liveness_returns_envelope_and_request_id(client: AsyncClient) -> None:
@@ -19,6 +23,37 @@ async def test_readiness_checks_database_and_redis(client: AsyncClient) -> None:
     assert body["status"] == "ok"
     assert body["dependencies"]["database"]["status"] == "ok"
     assert body["dependencies"]["redis"]["status"] == "ok"
+
+
+async def test_redis_outage_does_not_block_startup_or_readiness(
+    settings,
+    database,
+) -> None:
+    redis = FakeRedisManager(ready=False)
+    application = create_application(
+        settings=settings.model_copy(update={"startup_dependency_checks": True}),
+        database=database,
+        redis=redis,
+        ml_service=FakeClinicalModelService(),
+    )
+
+    async with (
+        LifespanManager(application),
+        AsyncClient(
+            transport=ASGITransport(app=application),
+            base_url="http://testserver",
+        ) as outage_client,
+    ):
+        live_response = await outage_client.get("/api/v1/health/live")
+        ready_response = await outage_client.get("/api/v1/health/ready")
+        version_response = await outage_client.get("/api/v1/health/version")
+
+    assert live_response.status_code == 200
+    assert ready_response.status_code == 200
+    assert ready_response.json()["data"]["status"] == "ok"
+    assert ready_response.json()["data"]["dependencies"]["redis"]["status"] == "degraded"
+    assert version_response.status_code == 200
+    assert redis.retry_started is True
 
 
 async def test_version_does_not_expose_secrets(client: AsyncClient) -> None:

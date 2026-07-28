@@ -27,10 +27,20 @@ class FakeRedisManager(RedisManager):
     def __init__(self, *, ready: bool = True) -> None:
         self.client: Any = FakeRedisClient()
         self.ready = ready
+        self.available = ready
         self.closed = False
+        self.retry_started = False
 
     async def ping(self) -> bool:
+        self.available = self.ready
         return self.ready
+
+    def start_background_retry(self) -> None:
+        self.retry_started = True
+
+    def mark_unavailable(self) -> None:
+        self.available = False
+        self.retry_started = True
 
     async def close(self) -> None:
         self.closed = True

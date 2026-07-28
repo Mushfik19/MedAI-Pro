@@ -41,9 +41,6 @@ class HealthService:
         names = list(self._checks)
         results = await asyncio.gather(*(self._run_check(self._checks[name]) for name in names))
         dependencies = dict(zip(names, results, strict=True))
-        overall = (
-            HealthStatus.OK
-            if all(item.status is HealthStatus.OK for item in dependencies.values())
-            else HealthStatus.DEGRADED
-        )
+        # Redis accelerates optional features; database availability gates API readiness.
+        overall = dependencies["database"].status
         return ReadinessResponse(status=overall, dependencies=dependencies)

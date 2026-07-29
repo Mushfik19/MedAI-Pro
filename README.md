@@ -1,5 +1,5 @@
 🚀 Live Demo
-https://your-vercel-url.vercel.app
+https://med-ai-pro-frontend.vercel.app/
 
 📚 API Documentation
 https://medai-pro-5100.onrender.com/docs
